@@ -64,46 +64,40 @@ if ! command -v jq &>/dev/null; then
   exit 1
 fi
 
-# Build a unique key for each hook: event|matcher|command
-hook_key() {
-  local event="$1" matcher="$2" command="$3"
-  echo "${event}|${matcher}|${command}"
-}
-
 main() {
   local baseline_hooks current_hooks
   baseline_hooks=$(jq '.hooks' "$BASELINE")
   current_hooks=$(jq '.hooks' "$CURRENT")
 
-  # Build lookup maps as temp files
-  local tmpdir
-  tmpdir=$(mktemp -d)
-  trap "rm -rf '$tmpdir'" EXIT
+  # Build keyed lookup objects using jq
+  local baseline_map current_map
+  baseline_map=$(echo "$baseline_hooks" | jq 'map({key: (.event + "|" + (.matcher // "") + "|" + .command), value: .}) | from_entries')
+  current_map=$(echo "$current_hooks" | jq 'map({key: (.event + "|" + (.matcher // "") + "|" + .command), value: .}) | from_entries')
 
-  # Create associative data via jq
-  # For each hook in baseline, create key -> hook data
-  echo "$baseline_hooks" | jq -c '.[] | {key: (.event + "|" + .matcher + "|" + .command), data: .}' > "$tmpdir/baseline_keyed.jsonl"
-  echo "$current_hooks" | jq -c '.[] | {key: (.event + "|" + .matcher + "|" + .command), data: .}' > "$tmpdir/current_keyed.jsonl"
-
-  # Get all unique keys
-  local all_keys
-  all_keys=$(cat "$tmpdir/baseline_keyed.jsonl" "$tmpdir/current_keyed.jsonl" | jq -r '.key' | sort -u)
+  # Get all unique keys via jq
+  local all_keys_json
+  all_keys_json=$(jq -n --argjson b "$baseline_map" --argjson c "$current_map" '[$b | keys[], $c | keys[]] | unique')
 
   local matched_hooks="[]"
   local added_hooks="[]"
   local removed_hooks="[]"
 
-  while IFS= read -r key; do
+  local key_count
+  key_count=$(echo "$all_keys_json" | jq 'length')
+
+  for (( ki=0; ki<key_count; ki++ )); do
+    local key
+    key=$(echo "$all_keys_json" | jq -r ".[$ki]")
     [[ -z "$key" ]] && continue
 
     local b_data c_data
-    b_data=$(grep -F "\"key\":\"$key\"" "$tmpdir/baseline_keyed.jsonl" 2>/dev/null | head -1 | jq '.data' 2>/dev/null || echo "null")
-    c_data=$(grep -F "\"key\":\"$key\"" "$tmpdir/current_keyed.jsonl" 2>/dev/null | head -1 | jq '.data' 2>/dev/null || echo "null")
+    b_data=$(echo "$baseline_map" | jq --arg k "$key" '.[$k] // null')
+    c_data=$(echo "$current_map" | jq --arg k "$key" '.[$k] // null')
 
-    if [[ "$b_data" == "null" || -z "$b_data" ]]; then
+    if [[ "$b_data" == "null" ]]; then
       # Added hook
       added_hooks=$(echo "$added_hooks" | jq --argjson h "$c_data" '. + [$h]')
-    elif [[ "$c_data" == "null" || -z "$c_data" ]]; then
+    elif [[ "$c_data" == "null" ]]; then
       # Removed hook
       removed_hooks=$(echo "$removed_hooks" | jq --argjson h "$b_data" '. + [$h]')
     else
@@ -148,7 +142,7 @@ main() {
           current_status: $c_status
         }]')
     fi
-  done <<< "$all_keys"
+  done
 
   # Compute summary stats
   local baseline_total current_total
@@ -166,12 +160,10 @@ main() {
   baseline_slow=$(jq '.summary.slow_hooks // 0' "$BASELINE")
   current_slow=$(jq '.summary.slow_hooks // 0' "$CURRENT")
 
-  local added_count removed_count
+  local added_count removed_count match_count
   added_count=$(echo "$added_hooks" | jq 'length')
   removed_count=$(echo "$removed_hooks" | jq 'length')
-
-  # Count hooks that gained explicit timeouts (in current but status changed, approximate)
-  local timeouts_set=0
+  match_count=$(echo "$matched_hooks" | jq 'length')
 
   if [[ "$FORMAT" == "json" ]]; then
     local result
@@ -227,8 +219,6 @@ main() {
     md+="|------------------------|---------------------|---------------------|-------|----------|"$'\n'
 
     # Table rows for matched hooks
-    local match_count
-    match_count=$(echo "$matched_hooks" | jq 'length')
     for (( i=0; i<match_count; i++ )); do
       local key b_med c_med delta pct
       key=$(echo "$matched_hooks" | jq -r ".[$i].key")
