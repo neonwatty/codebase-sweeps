@@ -204,24 +204,46 @@ check_secrets_on_pinned_actions() {
   local pass=0 total=0
   local details="[]"
 
-  for f in "${WORKFLOW_FILES[@]}"; do
-    # Find actions that reference secrets in their with/env blocks
-    # We check for `uses:` lines followed by `with:` blocks containing `secrets.` or `${{ secrets.`
-    local uses_with_secrets
-    uses_with_secrets=$(grep -B1 'secrets\.' "$f" 2>/dev/null | grep 'uses:' || true)
-    while IFS= read -r line; do
-      [[ -z "$line" ]] && continue
-      total=$((total + 1))
-      local action_ref
-      action_ref=$(echo "$line" | sed 's/.*uses:[[:space:]]*//' | sed 's/[[:space:]]*#.*//' | tr -d '"' | tr -d "'")
+  if ! $HAS_YQ; then
+    jq -n --arg check "secrets-on-pinned-actions" --argjson pass 0 --argjson total 0 --argjson details '[]' \
+      '{check: $check, pass: $pass, total: $total, details: $details}'
+    return
+  fi
 
-      if echo "$action_ref" | grep -qE '@[0-9a-f]{40}'; then
-        pass=$((pass + 1))
-        details=$(echo "$details" | jq --arg f "$f" --arg a "$action_ref" '. + [{file: $f, status: "pass", note: ("receives secrets, pinned to SHA: " + $a)}]')
-      else
-        details=$(echo "$details" | jq --arg f "$f" --arg a "$action_ref" '. + [{file: $f, status: "fail", note: ("receives secrets but NOT pinned to SHA: " + $a)}]')
-      fi
-    done <<< "$uses_with_secrets"
+  for f in "${WORKFLOW_FILES[@]}"; do
+    # Parse each step with yq→jq to find actions that receive secrets via with: or env: blocks.
+    # The previous grep -B1 approach missed secrets more than 1 line below uses:.
+    local jobs
+    jobs=$(yq -r '.jobs // {} | keys[]' "$f" 2>/dev/null || true)
+    for job in $jobs; do
+      local steps_json
+      steps_json=$(yq -o=json ".jobs[\"$job\"].steps // []" "$f" 2>/dev/null || echo "[]")
+
+      # Find steps that (a) have a uses: action (not local ./) and (b) reference secrets.* in with: or env:
+      local secret_actions
+      secret_actions=$(echo "$steps_json" | jq -r '
+        [.[] | select(
+          (.uses // "" | test("^\\./") | not) and
+          (.uses // "" | length > 0) and
+          (
+            ((.with // {}) | to_entries | map(.value | tostring) | any(test("secrets\\."))) or
+            ((.env // {}) | to_entries | map(.value | tostring) | any(test("secrets\\.")))
+          )
+        ) | .uses | sub("[[:space:]]*#.*"; "") | gsub("[\"'"'"']"; "")] | .[]
+      ' 2>/dev/null || true)
+
+      while IFS= read -r action_ref; do
+        [[ -z "$action_ref" ]] && continue
+        total=$((total + 1))
+
+        if echo "$action_ref" | grep -qE '@[0-9a-f]{40}'; then
+          pass=$((pass + 1))
+          details=$(echo "$details" | jq --arg f "$f" --arg a "$action_ref" '. + [{file: $f, status: "pass", note: ("receives secrets, pinned to SHA: " + $a)}]')
+        else
+          details=$(echo "$details" | jq --arg f "$f" --arg a "$action_ref" '. + [{file: $f, status: "fail", note: ("receives secrets but NOT pinned to SHA: " + $a)}]')
+        fi
+      done <<< "$secret_actions"
+    done
   done
 
   # If no actions receive secrets, report as clean

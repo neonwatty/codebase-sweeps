@@ -247,14 +247,26 @@ check_d2() {
 
     # Check if filter job outputs propagate to downstream jobs
     if [[ -n "$has_filter_job" ]]; then
+      # Use yq -o=json + jq instead of yq conditionals (yq v4 doesn't support if/then/else)
       local downstream_jobs
-      downstream_jobs=$(yq -r ".jobs // {} | to_entries[] | select(.value.needs // [] | (if type == \"array\" then . else [.] end) | map(select(. == \"$has_filter_job\")) | length > 0) | .key" "$f" 2>/dev/null || true)
+      downstream_jobs=$(yq -o=json '.jobs // {}' "$f" 2>/dev/null | jq -r --arg fj "$has_filter_job" '
+        to_entries[] | select(
+          (.value.needs // null) |
+          if type == "array" then map(select(. == $fj)) | length > 0
+          elif type == "string" then . == $fj
+          else false
+          end
+        ) | .key
+      ' 2>/dev/null || true)
 
       for djob in $downstream_jobs; do
         local job_if
         job_if=$(yq -r ".jobs[\"$djob\"].if // \"\"" "$f" 2>/dev/null || echo "")
+        # Use yq -o=json + jq for recursive string search (yq type == "string" doesn't work; it uses !!str)
         local has_env_check
-        has_env_check=$(yq -r ".jobs[\"$djob\"] | .. | select(type == \"string\" and test(\"SHOULD_RUN|needs\\.$has_filter_job\\.outputs\")) // empty" "$f" 2>/dev/null || true)
+        has_env_check=$(yq -o=json ".jobs[\"$djob\"]" "$f" 2>/dev/null | \
+          jq -r --arg pat "SHOULD_RUN|needs\\.$has_filter_job\\.outputs" \
+            '[.. | strings | select(test($pat))] | first // empty' 2>/dev/null || true)
 
         if [[ -z "$job_if" && -z "$has_env_check" ]]; then
           add_finding "D2" "filter-output-unused" "MEDIUM" "$f" "$djob" "Job depends on filter job '$has_filter_job' but doesn't check its output"
