@@ -176,7 +176,8 @@ check_concurrency() {
   for f in "${WORKFLOW_FILES[@]}"; do
     # Only check workflows triggered by pull_request
     local has_pr_trigger
-    has_pr_trigger=$(yq -r '.on | (has("pull_request") or has("pull_request_target")) // false' "$f" 2>/dev/null || echo "false")
+    # Handle both map syntax (on: {pull_request: ...}) and array syntax (on: [push, pull_request])
+    has_pr_trigger=$(yq -r '.on | ((tag == "!!map" and (has("pull_request") or has("pull_request_target"))) or (tag == "!!seq" and (. | contains(["pull_request"]) or contains(["pull_request_target"])))) // false' "$f" 2>/dev/null || echo "false")
 
     if [[ "$has_pr_trigger" == "true" ]]; then
       total=$((total + 1))
@@ -273,7 +274,7 @@ if $HAS_YQ; then
   CHECKS=$(echo "$CHECKS" | jq --argjson c "$(check_concurrency)" '. + [$c]')
 fi
 
-# These checks use grep, not yq
+# check_actions_pinned uses grep; check_secrets_on_pinned_actions uses yq but has its own internal guard
 CHECKS=$(echo "$CHECKS" | jq --argjson c "$(check_actions_pinned)" '. + [$c]')
 CHECKS=$(echo "$CHECKS" | jq --argjson c "$(check_secrets_on_pinned_actions)" '. + [$c]')
 

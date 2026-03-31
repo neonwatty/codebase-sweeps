@@ -86,7 +86,7 @@ fetch_jobs_for_runs() {
       } ]
     ')
 
-    result=$(echo "$result" "$run_jobs" | jq -s '.[0] + .[1]')
+    result=$(echo "$result" "$run_jobs" | jq -s 'add // []')
   done
   echo "$result"
 }
@@ -161,7 +161,7 @@ if [[ "$MAIN_JOB_NAMES" -lt "$WORKFLOW_COUNT" ]] || [[ "$MAIN_JOB_NAMES" -lt 3 ]
 
     if [[ "$NEW_COUNT" -gt 0 ]]; then
       echo "Backfilled $NEW_COUNT job records for: $NEW_NAMES" >&2
-      ALL_JOBS_JSON=$(echo "$ALL_JOBS_JSON" "$NEW_JOBS" | jq -s '.[0] + .[1]')
+      ALL_JOBS_JSON=$(echo "$ALL_JOBS_JSON" "$NEW_JOBS" | jq -s 'add // []')
     else
       echo "No new successfully-completed job names found in PR runs." >&2
     fi

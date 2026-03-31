@@ -68,8 +68,8 @@ REPO_NAME="${REPO##*/}"
 echo "Fetching timing for run $RUN_ID in $REPO..." >&2
 
 # --- Fetch per-step timing via the REST API ---
-# Use -q '[.jobs[]]' with --paginate to correctly merge across pages
-JOBS_API_JSON=$(gh api "repos/$OWNER/$REPO_NAME/actions/runs/$RUN_ID/jobs" --paginate -q '[.jobs[]]')
+# Use --paginate with jq -s to correctly merge all pages into a single array
+JOBS_API_JSON=$(gh api "repos/$OWNER/$REPO_NAME/actions/runs/$RUN_ID/jobs" --paginate -q '[.jobs[]]' | jq -s 'add // []')
 
 COLLECTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
