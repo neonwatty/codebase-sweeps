@@ -65,34 +65,32 @@ if ! command -v jq &>/dev/null; then
 fi
 
 main() {
-  local baseline_hooks current_hooks
-  baseline_hooks=$(jq '.hooks' "$BASELINE")
-  current_hooks=$(jq '.hooks' "$CURRENT")
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  trap "rm -rf '$tmpdir'" EXIT
 
-  # Build keyed lookup objects using jq
-  local baseline_map current_map
-  baseline_map=$(echo "$baseline_hooks" | jq 'map({key: (.event + "|" + (.matcher // "") + "|" + .command), value: .}) | from_entries')
-  current_map=$(echo "$current_hooks" | jq 'map({key: (.event + "|" + (.matcher // "") + "|" + .command), value: .}) | from_entries')
+  # Build keyed lookup objects using jq, written to temp files to avoid shell escaping issues
+  jq '.hooks | map({key: (.event + "|" + (.matcher // "") + "|" + .command), value: .}) | from_entries' "$BASELINE" > "$tmpdir/baseline_map.json"
+  jq '.hooks | map({key: (.event + "|" + (.matcher // "") + "|" + .command), value: .}) | from_entries' "$CURRENT" > "$tmpdir/current_map.json"
 
-  # Get all unique keys via jq
-  local all_keys_json
-  all_keys_json=$(jq -n --argjson b "$baseline_map" --argjson c "$current_map" '[$b | keys[], $c | keys[]] | unique')
+  # Get all unique keys via jq using file inputs
+  jq -n '[inputs | keys[]] | unique' "$tmpdir/baseline_map.json" "$tmpdir/current_map.json" > "$tmpdir/all_keys.json"
 
   local matched_hooks="[]"
   local added_hooks="[]"
   local removed_hooks="[]"
 
   local key_count
-  key_count=$(echo "$all_keys_json" | jq 'length')
+  key_count=$(jq 'length' "$tmpdir/all_keys.json")
 
   for (( ki=0; ki<key_count; ki++ )); do
     local key
-    key=$(echo "$all_keys_json" | jq -r ".[$ki]")
+    key=$(jq -r ".[$ki]" "$tmpdir/all_keys.json")
     [[ -z "$key" ]] && continue
 
     local b_data c_data
-    b_data=$(echo "$baseline_map" | jq --arg k "$key" '.[$k] // null')
-    c_data=$(echo "$current_map" | jq --arg k "$key" '.[$k] // null')
+    b_data=$(jq --arg k "$key" '.[$k] // null' "$tmpdir/baseline_map.json")
+    c_data=$(jq --arg k "$key" '.[$k] // null' "$tmpdir/current_map.json")
 
     if [[ "$b_data" == "null" ]]; then
       # Added hook
@@ -227,10 +225,14 @@ main() {
       delta=$(echo "$matched_hooks" | jq ".[$i].delta_median_ms")
       pct=$(echo "$matched_hooks" | jq ".[$i].pct_change")
 
-      # Parse key into readable form
-      local event matcher
-      event=$(echo "$key" | cut -d'|' -f1)
-      matcher=$(echo "$key" | cut -d'|' -f2)
+      # Parse key into readable form: event|matcher|command
+      # matcher itself may contain | so extract first field and last field, middle is matcher
+      local event matcher key_command
+      event="${key%%|*}"
+      key_command="${key##*|}"
+      # matcher is everything between first | and last |
+      local without_event="${key#*|}"
+      matcher="${without_event%|*}"
       [[ -z "$matcher" ]] && matcher="(all)"
 
       local sign=""
