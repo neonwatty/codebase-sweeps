@@ -86,6 +86,7 @@ RESULT=$(echo "$JOBS_API_JSON" | jq --arg repo "$REPO" --argjson run_id "$RUN_ID
           ((.started_at // empty) | fromdateiso8601)
         ),
         conclusion: (.conclusion // "unknown"),
+        runner_labels: (.labels // []),
         steps: [
           (.steps // [])[] | {
             name: .name,
