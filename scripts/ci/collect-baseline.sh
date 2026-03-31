@@ -61,10 +61,13 @@ fi
 # --- Helper: fetch jobs from a list of run IDs ---
 fetch_jobs_for_runs() {
   local result="[]"
+  local owner="${REPO%%/*}"
+  local repo_name="${REPO##*/}"
   for run_id in "$@"; do
     echo "  Fetching jobs for run $run_id..." >&2
     local jobs_json
-    jobs_json=$(gh run view "$run_id" --repo "$REPO" --json jobs -q '.jobs')
+    # Use REST API (not CLI) to get runner labels for billable minutes estimation
+    jobs_json=$(gh api "repos/$owner/$repo_name/actions/runs/$run_id/jobs" --paginate -q '[.jobs[]]' 2>/dev/null || echo "[]")
 
     local run_jobs
     run_jobs=$(echo "$jobs_json" | jq --arg rid "$run_id" '
@@ -72,11 +75,12 @@ fetch_jobs_for_runs() {
         run_id: ($rid | tonumber),
         name: .name,
         conclusion: .conclusion,
+        runner_labels: (.labels // []),
         duration_s: (
           if .conclusion == "skipped" then 0
           else
-            ((.completedAt // empty) | fromdateiso8601) -
-            ((.startedAt // empty) | fromdateiso8601)
+            ((.completed_at // empty) | fromdateiso8601) -
+            ((.started_at // empty) | fromdateiso8601)
           end
         )
       } ]
@@ -187,11 +191,13 @@ RESULT=$(echo "$ALL_JOBS_JSON" | jq --arg repo "$REPO" --arg ts "$COLLECTED_AT" 
   group_by(.name) |
   map({
     name: .[0].name,
+    runner_labels: (.[0].runner_labels // []),
     runs: [ .[] | { run_id: .run_id, duration_s: .duration_s } ],
     sorted: ([ .[].duration_s ] | sort)
   }) |
   map({
     name: .name,
+    runner_labels: .runner_labels,
     runs: .runs,
     min_duration_s: (.sorted | first),
     max_duration_s: (.sorted | last),
@@ -214,6 +220,7 @@ RESULT=$(echo "$ALL_JOBS_JSON" | jq --arg repo "$REPO" --arg ts "$COLLECTED_AT" 
           median_duration_s: $j.median_duration_s,
           min_duration_s: $j.min_duration_s,
           max_duration_s: $j.max_duration_s,
+          runner_labels: $j.runner_labels,
           runs: $j.runs
         }
       })
