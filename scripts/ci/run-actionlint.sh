@@ -71,9 +71,22 @@ fi
 
 echo "Running actionlint on $DIR..." >&2
 
+# --- Collect workflow files (only those that exist) ---
+LINT_FILES=()
+for ext in yml yaml; do
+  for f in "$DIR"/*."$ext"; do
+    [[ -f "$f" ]] && LINT_FILES+=("$f")
+  done
+done
+
+if [[ ${#LINT_FILES[@]} -eq 0 ]]; then
+  echo "Error: No workflow files found in $DIR" >&2
+  exit 1
+fi
+
 # --- Run actionlint with JSON output ---
 # actionlint returns non-zero when it finds issues, so we capture it
-RAW_OUTPUT=$(actionlint -format '{{json .}}' "$DIR"/*.yml "$DIR"/*.yaml 2>/dev/null || true)
+RAW_OUTPUT=$(actionlint -format '{{json .}}' "${LINT_FILES[@]}" 2>/dev/null || true)
 
 # Parse into structured findings
 if [[ -z "$RAW_OUTPUT" ]]; then

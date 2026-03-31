@@ -215,6 +215,10 @@ BILLABLE=$(jq -n \
 COMPARISON=$(echo "$COMPARISON" | jq --argjson billable "$BILLABLE" '. + {billable: $billable}')
 
 # --- Add hygiene comparison if provided ---
+# Warn if only one of the two hygiene flags was provided
+if [[ -n "$HYGIENE_BEFORE" && -z "$HYGIENE_AFTER" ]] || [[ -z "$HYGIENE_BEFORE" && -n "$HYGIENE_AFTER" ]]; then
+  echo "Warning: both --hygiene-before and --hygiene-after are required for hygiene comparison; skipping." >&2
+fi
 if [[ -n "$HYGIENE_BEFORE" && -f "$HYGIENE_BEFORE" && -n "$HYGIENE_AFTER" && -f "$HYGIENE_AFTER" ]]; then
   HYGIENE_CMP=$(jq -n \
     --slurpfile before "$HYGIENE_BEFORE" \
@@ -299,8 +303,8 @@ format_markdown() {
         ($before | map(.check)) as $checks |
         $checks[] |
         . as $c |
-        ($before | map(select(.check == $c)) | first) as $b |
-        ($after | map(select(.check == $c)) | first) as $a |
+        ($before | map(select(.check == $c)) | first // {pass: "?", total: "?"}) as $b |
+        ($after | map(select(.check == $c)) | first // {pass: "?", total: "?"}) as $a |
         "| \($c) | \($b.pass)/\($b.total) | \($a.pass)/\($a.total) |"
       )
     ')

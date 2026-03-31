@@ -95,7 +95,7 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
   echo "  Fetching jobs for run $run_id..." >&2
   JOBS=$(gh run view "$run_id" --repo "$REPO" --json jobs -q '.jobs' 2>/dev/null || echo "[]")
   TAGGED=$(echo "$JOBS" | jq --arg rid "$run_id" '[.[] | {run_id: ($rid | tonumber), name: .name, conclusion: (.conclusion // "unknown")}]')
-  ALL_JOBS=$(echo "$ALL_JOBS" "$TAGGED" | jq -s '.[0] + .[1]')
+  ALL_JOBS=$(echo "$ALL_JOBS" "$TAGGED" | jq -s 'add // []')
 done
 
 # --- Compute per-job failure rates ---

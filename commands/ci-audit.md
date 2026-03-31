@@ -29,7 +29,8 @@ Different dimensions are measured differently. Refer to `references/ci-dimension
 
 1. Ensure you are on the default branch with the latest code:
    ```bash
-   git checkout main && git pull origin main
+   DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d: -f2 | xargs)
+   git checkout "$DEFAULT_BRANCH" && git pull origin "$DEFAULT_BRANCH"
    ```
 
 2. Read `docs/plans/ci-audit-tracking.md` to find the last iteration number. Your iteration is N+1. If no iterations exist yet, you are iteration 1. If the tracking file does not exist, create it:
@@ -39,6 +40,17 @@ Different dimensions are measured differently. Refer to `references/ci-dimension
    Automated CI pipeline optimization. 9 dimensions across 4 measurement axes. All improvements measured empirically.
 
    **Measurement axes:** Wall-clock timing | Billable minutes | Hygiene checklist | Flakiness score
+
+   ## Dimension Status
+   - [ ] D1: Caching & Artifacts (Wall-clock, Billable)
+   - [ ] D2: Path Filtering (Wall-clock, Billable)
+   - [ ] D3: Parallelization (Wall-clock, Billable)
+   - [ ] D4: Concurrency & Cancellation (Hygiene)
+   - [ ] D5: Dependency PR Handling (Wall-clock, Billable)
+   - [ ] D6: Flakiness (Flakiness)
+   - [ ] D7: Security Hardening (Hygiene)
+   - [ ] D8: DRY Infrastructure (Hygiene)
+   - [ ] D9: Runner Optimization (Hygiene)
 
    ---
 
@@ -149,7 +161,11 @@ Fix the findings reported by the scripts. Do NOT invent additional findings — 
    ./scripts/ci/collect-run-timing.sh --repo <OWNER/REPO> --run-id "$RUN_ID" --output /tmp/ci-audit-current.json
    ```
 
-7. **Generate multi-axis comparison report:**
+7. **Generate multi-axis comparison report.** First check which optional data files exist, then include only those flags:
+   ```bash
+   ls /tmp/ci-audit-hygiene-before.json /tmp/ci-audit-hygiene-after.json /tmp/ci-audit-flakiness.json 2>/dev/null
+   ```
+   Build the compare-runs command with only the flags for files that exist:
    ```bash
    ./scripts/ci/compare-runs.sh \
      --baseline /tmp/ci-audit-baseline.json \
@@ -159,7 +175,6 @@ Fix the findings reported by the scripts. Do NOT invent additional findings — 
      --flakiness /tmp/ci-audit-flakiness.json \
      --format markdown
    ```
-   Note: only include `--hygiene-*` and `--flakiness` flags if those files exist (i.e., you collected them in Phase 2).
 
 8. If CI fails, read logs, fix, push, and re-measure (max 3 attempts):
    ```bash
@@ -168,7 +183,9 @@ Fix the findings reported by the scripts. Do NOT invent additional findings — 
 
 ## Phase 5: Update Tracking
 
-Append a new entry to `docs/plans/ci-audit-tracking.md`. Include the ACTUAL measurements from the scripts. Only include sections relevant to the dimensions you audited:
+1. **Check off completed dimensions** in the `## Dimension Status` checklist at the top of the tracking file. Change `- [ ]` to `- [x]` for each dimension audited in this iteration.
+
+2. Append a new entry to `docs/plans/ci-audit-tracking.md`. Include the ACTUAL measurements from the scripts. Only include sections relevant to the dimensions you audited:
 
 ```markdown
 ### Iteration N (YYYY-MM-DD)
@@ -231,7 +248,7 @@ Follow the **CI & Merge** phase in `references/common-lifecycle.md`.
 ## Phase 7: Signal
 
 Completion requires BOTH conditions:
-1. All 9 CI dimensions have been audited (check tracking file)
+1. All 9 CI dimensions have been audited — verify by checking `## Dimension Status` in the tracking file for unchecked items (`- [ ]`). If any remain unchecked, the audit is not complete.
 2. No HIGH or MEDIUM findings remain unfixed (re-run all detection scripts to confirm)
 
 **If both conditions met**, output exactly:

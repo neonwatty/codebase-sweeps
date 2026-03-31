@@ -205,9 +205,10 @@ check_d2() {
   echo "  Checking D2: Path Filtering..." >&2
 
   for f in "${WORKFLOW_FILES[@]}"; do
-    # Check if workflow triggers on pull_request
+    # Check if workflow triggers on pull_request or pull_request_target
+    # Handle both map syntax (on: {pull_request: ...}) and array syntax (on: [push, pull_request])
     local has_pr_trigger
-    has_pr_trigger=$(yq -r '.on | has("pull_request") // false' "$f" 2>/dev/null || echo "false")
+    has_pr_trigger=$(yq -r '.on | ((tag == "!!map" and (has("pull_request") or has("pull_request_target"))) or (tag == "!!seq" and (. | contains(["pull_request"]) or contains(["pull_request_target"])))) // false' "$f" 2>/dev/null || echo "false")
 
     [[ "$has_pr_trigger" != "true" ]] && continue
 
@@ -434,9 +435,10 @@ check_d5() {
 
   # --- Check 2: Heavy jobs without dependabot skip condition ---
   for f in "${WORKFLOW_FILES[@]}"; do
-    # Only check workflows triggered by pull_request
+    # Only check workflows triggered by pull_request or pull_request_target
+    # Handle both map syntax (on: {pull_request: ...}) and array syntax (on: [push, pull_request])
     local has_pr_trigger
-    has_pr_trigger=$(yq -r '.on | has("pull_request") // false' "$f" 2>/dev/null || echo "false")
+    has_pr_trigger=$(yq -r '.on | ((tag == "!!map" and (has("pull_request") or has("pull_request_target"))) or (tag == "!!seq" and (. | contains(["pull_request"]) or contains(["pull_request_target"])))) // false' "$f" 2>/dev/null || echo "false")
     [[ "$has_pr_trigger" != "true" ]] && continue
 
     local jobs
