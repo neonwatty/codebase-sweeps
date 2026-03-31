@@ -214,7 +214,7 @@ check_d2() {
     # Check if there's a path-filter job or paths: trigger
     local has_paths_trigger has_filter_job
     has_paths_trigger=$(yq -r '.on.pull_request.paths // null' "$f" 2>/dev/null || echo "null")
-    has_filter_job=$(yq -r '.jobs // {} | to_entries[] | select(.value.steps[]?.uses // "" | test("dorny/paths-filter")) | .key' "$f" 2>/dev/null || true)
+    has_filter_job=$(yq -r '.jobs // {} | to_entries[] | select(.value.steps[]?.uses // "" | test("dorny/paths-filter")) | .key' "$f" 2>/dev/null | head -1 || true)
 
     # Check if push trigger has paths: but pull_request doesn't (and no dorny filter)
     local push_has_paths
