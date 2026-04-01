@@ -67,7 +67,7 @@ fetch_jobs_for_runs() {
     echo "  Fetching jobs for run $run_id..." >&2
     local jobs_json
     # Use REST API (not CLI) to get runner labels for billable minutes estimation
-    jobs_json=$(gh api "repos/$owner/$repo_name/actions/runs/$run_id/jobs" --paginate -q '[.jobs[]]' 2>/dev/null || echo "[]")
+    jobs_json=$(gh api "repos/$owner/$repo_name/actions/runs/$run_id/jobs" --paginate -q '[.jobs[]]' 2>/dev/null | jq -s 'add // []' || echo "[]")
 
     local run_jobs
     run_jobs=$(echo "$jobs_json" | jq --arg rid "$run_id" '
@@ -78,9 +78,9 @@ fetch_jobs_for_runs() {
         runner_labels: (.labels // []),
         duration_s: (
           if .conclusion == "skipped" then 0
-          else
-            ((.completed_at // empty) | fromdateiso8601) -
-            ((.started_at // empty) | fromdateiso8601)
+          elif (.completed_at != null and .started_at != null) then
+            ((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601))
+          else 0
           end
         )
       } ]

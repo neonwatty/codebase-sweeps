@@ -39,8 +39,10 @@ If no reference repo URL was provided above, check `docs/plans/gap-tracking.md` 
 
 4. Clone or update the reference app:
    ```bash
-   git clone <REFERENCE_REPO_URL> /tmp/reference-app 2>/dev/null || git -C /tmp/reference-app pull origin main
+   REFERENCE_DIR="/tmp/reference-app-$(echo '<REFERENCE_REPO_URL>' | md5sum | cut -c1-8 || echo 'default')"
+   git clone <REFERENCE_REPO_URL> "$REFERENCE_DIR" 2>/dev/null || git -C "$REFERENCE_DIR" pull origin main
    ```
+   Use `$REFERENCE_DIR` (or the resolved path) in all subsequent references to the reference app.
 
 5. Review which dimensions and files were already covered in prior iterations. Focus effort on uncovered ground.
 

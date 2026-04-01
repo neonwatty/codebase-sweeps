@@ -124,11 +124,13 @@ For each gap found, classify its severity:
 - **MEDIUM** — Missing secondary element, styling mismatch, incomplete interaction, partial data integration
 - **LOW** — Minor visual difference, subtle spacing, polish item
 
-If zero gaps are found across all six dimensions, skip to Phase 6 (signal).
+If zero gaps are found across all six dimensions, append a minimal tracking entry ("Iteration N: Zero gaps found — convergence achieved") to the tracking file, then skip to Phase 6 (signal).
 
 If gaps were found, proceed to Phase 4.
 
 ## Phase 4: Clarify, Prioritize & Fix
+
+> **Loop-awareness:** If this skill was invoked by a Ralph Loop (check if the prompt mentions ralph-loop or was re-fed by a loop wrapper), do NOT use `AskUserQuestion`. Instead, pick the recommended interpretation for each ambiguous item and note the decision in the tracking file under "Auto-resolved (loop mode)". Only use `AskUserQuestion` when running interactively.
 
 ### Ambiguity Check
 

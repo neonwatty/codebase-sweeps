@@ -172,9 +172,13 @@ check_d1() {
       local has_docker_build has_docker_cache
       has_docker_build=$(echo "$steps_json" | jq '[.[] | select(.run // "" | test("docker build"))] | length')
       if [[ "$has_docker_build" -gt 0 ]]; then
-        has_docker_cache=$(echo "$steps_json" | jq '[.[] | select((.uses // "" | test("docker/build-push-action")) and ((.with["cache-from"] // "") | length > 0))] | length')
-        if [[ "$has_docker_cache" -eq 0 ]]; then
-          add_finding "D1" "docker-layer-cache" "HIGH" "$f" "$job" "docker build without layer caching"
+        # Check for --cache-from in the docker build command itself
+        has_docker_cache=$(echo "$steps_json" | jq '[.[] | select(.run // "" | test("docker build") and test("--cache-from"))] | length')
+        # Also check for docker/build-push-action with cache-from (may be a separate step)
+        local has_action_cache
+        has_action_cache=$(echo "$steps_json" | jq '[.[] | select((.uses // "" | test("docker/build-push-action")) and ((.with["cache-from"] // "") | length > 0))] | length')
+        if [[ "$has_docker_cache" -eq 0 && "$has_action_cache" -eq 0 ]]; then
+          add_finding "D1" "docker-layer-cache" "HIGH" "$f" "$job" "docker build without layer caching (no --cache-from flag or docker/build-push-action with cache-from)"
         fi
       fi
 

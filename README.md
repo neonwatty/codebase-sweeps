@@ -29,9 +29,10 @@ claude plugin install ralph-loop
 | `/useful-loops:beta-audit` | Holistic beta-readiness review across 5 dimensions |
 | `/useful-loops:service-audit` | Audit Vercel, Supabase, PostHog, Sentry, GitHub for issues |
 | `/useful-loops:funnel-audit` | Audit one top-of-funnel marketing category, fix issues |
-| `/useful-loops:plan-to-plan <source> <target>` | Align a derived plan against its source plan |
-| `/useful-loops:mockup-from-plan <plan> <mockup-dir>` | Build/refine an HTML mockup from a plan document |
-| `/useful-loops:prototype-from-mockup <mockup-dir> <app-dir>` | Build/refine an app prototype from an HTML mockup |
+| `/useful-loops:ci-audit <OWNER/REPO> [--branch BRANCH]` | Audit 1-2 CI dimensions, measure and fix, re-measure |
+| `/useful-loops:plan-to-plan <source> <target>` | Align a derived plan against its source plan (interactive) |
+| `/useful-loops:mockup-from-plan <plan> <mockup-dir>` | Build/refine an HTML mockup from a plan document (interactive) |
+| `/useful-loops:prototype-from-mockup <mockup-dir> <app-dir>` | Build/refine an app prototype from an HTML mockup (interactive) |
 
 ### Looped (requires ralph-loop plugin)
 
@@ -43,11 +44,12 @@ claude plugin install ralph-loop
 | `/useful-loops:beta-audit-loop [--max N]` | Loop beta audit until no HIGH/MEDIUM code findings |
 | `/useful-loops:service-audit-loop [--max N]` | Loop service audit until no CRITICAL/HIGH findings |
 | `/useful-loops:funnel-loop` | Guide for running funnel audit iterations (interactive, not automated) |
+| `/useful-loops:ci-loop <OWNER/REPO> [--max N]` | Loop CI audit until all 9 dimensions are covered (default max: 9) |
 | `/useful-loops:plan-to-plan-loop <source> <target> [--max N]` | Loop plan-to-plan until target fully covers source |
 | `/useful-loops:mockup-from-plan-loop <plan> <mockup-dir> [--max N]` | Loop mockup-from-plan until mockup matches plan |
 | `/useful-loops:prototype-from-mockup-loop <mockup-dir> <app-dir> [--max N]` | Loop prototype-from-mockup until prototype matches mockup |
 
-Default max iterations: 10.
+Default max iterations: 10 (except ci-loop which defaults to 9).
 
 ### Self-Contained (single iteration, no Ralph Loop dependency)
 
@@ -55,8 +57,13 @@ Default max iterations: 10.
 |---------|-------------|
 | `/useful-loops:plan-refine "<PROMPT>" <PLAN>` | Refine a plan document or directory using a prompt-driven analysis |
 | `/useful-loops:doc-refine "<PROMPT>" <DOC_FILE>` | Refine a document using a prompt-driven analysis |
-| `/useful-loops:plan-refine-loop "<PROMPT>" <PLAN> [--max N]` | Loop plan-refine until no improvements found (requires ralph-loop) |
-| `/useful-loops:doc-refine-loop "<PROMPT>" <DOC_FILE> [--max N]` | Loop doc-refine until no improvements found (requires ralph-loop) |
+
+### Self-Contained Loops (requires ralph-loop plugin)
+
+| Command | Description |
+|---------|-------------|
+| `/useful-loops:plan-refine-loop "<PROMPT>" <PLAN> [--max N]` | Loop plan-refine until no improvements found |
+| `/useful-loops:doc-refine-loop "<PROMPT>" <DOC_FILE> [--max N]` | Loop doc-refine until no improvements found |
 
 ## How It Works
 
@@ -85,6 +92,7 @@ Each skill maintains a tracking file in `docs/plans/`:
 - `service-audit-tracking.md` — service health audit iterations
 - `service-audit-manual-todos.md` — accumulating manual to-do checklist from service audits
 - `funnel-audit-tracking.md` — funnel audit iterations
+- `ci-audit-tracking.md` — CI audit iterations and measurements
 - `plan-refine-tracking.md` — plan refinement iterations
 - `doc-refine-tracking.md` — document refinement iterations
 - `plan-to-plan-tracking.md` — plan-to-plan alignment iterations
@@ -227,13 +235,14 @@ Handles abstraction shifts (e.g., PRD to screen plan, screen plan to technical s
 
 ### Mockup-from-Plan
 
-Builds and refines an HTML/CSS/JS mockup to match a plan document across 5 dimensions:
+Builds and refines an HTML/CSS/JS mockup to match a plan document across 6 dimensions:
 
 - Pages & Sections — all pages/screens from the plan exist as HTML files
 - Components & Elements — all UI elements described in the plan are present
 - Layout & Structure — page structure matches the plan's specifications
 - Content & Copy — text, labels, and placeholder content match the plan
 - Interactions & States — JavaScript behaviors match the plan's interaction descriptions
+- Styling & Visual Design — colors, fonts, spacing match any design specs in the plan
 
 **Completion:** `MOCKUP_MATCHES_PLAN` when the mockup faithfully represents everything in the plan.
 
@@ -252,9 +261,36 @@ Follows the app's existing conventions (framework, CSS approach, data layer) rat
 
 **Completion:** `PROTOTYPE_MATCHES_MOCKUP` when no gaps found across all 6 dimensions.
 
+### CI Audit
+
+Script-driven CI pipeline optimization across 9 dimensions and 4 measurement axes:
+
+**Dimensions:**
+1. D1: Caching & Artifacts (Wall-clock, Billable)
+2. D2: Path Filtering (Wall-clock, Billable)
+3. D3: Parallelization (Wall-clock, Billable)
+4. D4: Concurrency & Cancellation (Billable)
+5. D5: Dependency PR Handling (Wall-clock, Billable)
+6. D6: Flakiness (Flakiness)
+7. D7: Security Hardening (Hygiene)
+8. D8: DRY Infrastructure (Hygiene)
+9. D9: Runner Optimization (Hygiene)
+
+**Measurement axes:** Wall-clock timing | Billable minutes | Hygiene checklist | Flakiness score
+
+All detection is script-driven (no LLM judgment for finding issues). Scripts in `scripts/ci/` run deterministic static analysis and GitHub API queries. Audits 1-2 dimensions per iteration, measures before and after, and reports empirical deltas.
+
+**Completion:** `CI_OPTIMIZED` when all 9 dimensions are audited with no HIGH/MEDIUM findings.
+
 ## Examples
 
 ```bash
+# Single CI audit iteration
+/useful-loops:ci-audit owner/repo
+
+# Loop CI audit across all 9 dimensions
+/useful-loops:ci-loop owner/repo --max 9
+
 # Single gap analysis iteration against a reference app
 /useful-loops:gap-analysis https://github.com/org/reference-app
 

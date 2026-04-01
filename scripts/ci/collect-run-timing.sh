@@ -83,8 +83,10 @@ RESULT=$(echo "$JOBS_API_JSON" | jq --arg repo "$REPO" --argjson run_id "$RUN_ID
       $jobs[] | {
         name: .name,
         duration_s: (
-          ((.completed_at // empty) | fromdateiso8601) -
-          ((.started_at // empty) | fromdateiso8601)
+          if (.completed_at != null and .started_at != null) then
+            ((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601))
+          else null
+          end
         ),
         conclusion: (.conclusion // "unknown"),
         runner_labels: (.labels // []),
@@ -103,7 +105,7 @@ RESULT=$(echo "$JOBS_API_JSON" | jq --arg repo "$REPO" --argjson run_id "$RUN_ID
       }
     ]
   } |
-  .total_duration_s = ([ .jobs[].duration_s ] | add // 0)
+  .total_duration_s = ([ .jobs[].duration_s // 0 ] | add // 0)
 ')
 
 # --- Output ---

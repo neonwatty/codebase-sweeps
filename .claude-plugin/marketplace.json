@@ -9,7 +9,7 @@
     {
       "name": "useful-loops",
       "source": {
-        "source": "github",
+        "type": "github",
         "repo": "neonwatty/useful-loops"
       },
       "description": "Autonomous iterative codebase improvement skills for gap analysis, test coverage, security audits, beta-readiness audits, service health audits, funnel audits, plan refinement, document refinement, plan-to-plan alignment, mockup generation, and prototype building. Designed to run standalone or in Ralph Loops.",

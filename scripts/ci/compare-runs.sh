@@ -245,7 +245,7 @@ format_markdown() {
 
   # Timing section
   output+=$(echo "$COMPARISON" | jq -r '
-    "#### Timing",
+    "#### Job Duration Totals (sum of all jobs, not wall-clock)",
     "",
     "| Job | Baseline (s) | Current (s) | Delta | % Change |",
     "|-----|-------------|-------------|-------|----------|",
