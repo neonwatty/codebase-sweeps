@@ -115,9 +115,10 @@ Follow the **CI & Merge** phase in `references/common-lifecycle.md`.
 
 ## Phase 8: Signal
 
-Completion requires BOTH conditions:
+Completion requires ALL conditions:
 1. All 10 OWASP categories have been audited (check tracking file)
 2. No HIGH or MEDIUM findings remain unfixed
+3. This iteration found zero new findings — if this iteration found and fixed issues, exit normally so the next iteration can verify the fixes from scratch
 
 **If both conditions met**, output exactly:
 

@@ -93,7 +93,9 @@ ALL_JOBS="[]"
 
 for run_id in "${RUN_ID_ARRAY[@]}"; do
   echo "  Fetching jobs for run $run_id..." >&2
-  JOBS=$(gh run view "$run_id" --repo "$REPO" --json jobs -q '.jobs' 2>/dev/null || echo "[]")
+  OWNER="${REPO%%/*}"
+  REPO_NAME_LOCAL="${REPO##*/}"
+  JOBS=$(gh api "repos/$OWNER/$REPO_NAME_LOCAL/actions/runs/$run_id/jobs" --paginate -q '[.jobs[]]' 2>/dev/null | jq -s 'add // []' || echo "[]")
   TAGGED=$(echo "$JOBS" | jq --arg rid "$run_id" '[.[] | {run_id: ($rid | tonumber), name: .name, conclusion: (.conclusion // "unknown")}]')
   ALL_JOBS=$(echo "$ALL_JOBS" "$TAGGED" | jq -s 'add // []')
 done

@@ -44,7 +44,7 @@ For each improvement found, classify its severity:
 - **MEDIUM** — Unclear wording, inconsistent tone, weak transitions, missing context, formatting issues
 - **LOW** — Minor phrasing, redundancy, stylistic polish, typos
 
-If zero improvements are found at any severity level, skip to Phase 5 (signal).
+If zero improvements are found at any severity level, append a minimal tracking entry ("Iteration N: Zero improvements found — convergence achieved") to the tracking file, then skip to Phase 5 (signal).
 
 If improvements were found, proceed to Phase 3.
 

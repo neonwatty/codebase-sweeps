@@ -45,7 +45,7 @@ Different dimensions are measured differently. Refer to `references/ci-dimension
    - [ ] D1: Caching & Artifacts (Wall-clock, Billable)
    - [ ] D2: Path Filtering (Wall-clock, Billable)
    - [ ] D3: Parallelization (Wall-clock, Billable)
-   - [ ] D4: Concurrency & Cancellation (Hygiene)
+   - [ ] D4: Concurrency & Cancellation (Billable)
    - [ ] D5: Dependency PR Handling (Wall-clock, Billable)
    - [ ] D6: Flakiness (Flakiness)
    - [ ] D7: Security Hardening (Hygiene)
@@ -144,24 +144,26 @@ Fix the findings reported by the scripts. Do NOT invent additional findings — 
    ./scripts/ci/score-hygiene.sh --output /tmp/ci-audit-hygiene-after.json
    ```
 
-4. Follow the **Ship** phase in `references/common-lifecycle.md` with:
+4. **Update tracking file** — Check off completed dimensions in the `## Dimension Status` checklist (change `- [ ]` to `- [x]`). Append a new iteration entry to `docs/plans/ci-audit-tracking.md` with the actual measurements from the scripts. See Phase 5 template below. Stage the tracking file so it is included in the PR commit.
+
+5. Follow the **Ship** phase in `references/common-lifecycle.md` with:
    - **Branch:** `ci-audit/iteration-<N>`
    - **Commit:** `ci: optimize <dimension names> from ci audit iteration N`
    - **PR title:** `CI Audit: Iteration N — <dimension names>`
    - **PR body:** `Automated CI optimization. See docs/plans/ci-audit-tracking.md for measurements.`
 
-5. **Wait for CI to complete** on the PR:
+6. **Wait for CI to complete** on the PR:
    ```bash
    gh pr checks <number> --watch
    ```
 
-6. **Collect post-change timing** from the CI run triggered by the PR:
+7. **Collect post-change timing** from the CI run triggered by the PR:
    ```bash
    RUN_ID=$(gh run list --branch ci-audit/iteration-<N> --limit 1 --json databaseId --jq '.[0].databaseId')
    ./scripts/ci/collect-run-timing.sh --repo <OWNER/REPO> --run-id "$RUN_ID" --output /tmp/ci-audit-current.json
    ```
 
-7. **Generate multi-axis comparison report.** First check which optional data files exist, then include only those flags:
+8. **Generate multi-axis comparison report.** First check which optional data files exist, then include only those flags:
    ```bash
    ls /tmp/ci-audit-hygiene-before.json /tmp/ci-audit-hygiene-after.json /tmp/ci-audit-flakiness.json 2>/dev/null
    ```
@@ -176,16 +178,14 @@ Fix the findings reported by the scripts. Do NOT invent additional findings — 
      --format markdown
    ```
 
-8. If CI fails, read logs, fix, push, and re-measure (max 3 attempts):
+9. If CI fails, read logs, fix, push, and re-measure (max 3 attempts):
    ```bash
    gh run view <run-id> --log-failed
    ```
 
-## Phase 5: Update Tracking
+## Phase 5: Tracking Template
 
-1. **Check off completed dimensions** in the `## Dimension Status` checklist at the top of the tracking file. Change `- [ ]` to `- [x]` for each dimension audited in this iteration.
-
-2. Append a new entry to `docs/plans/ci-audit-tracking.md`. Include the ACTUAL measurements from the scripts. Only include sections relevant to the dimensions you audited:
+Use this template when updating the tracking file in Phase 4 step 4:
 
 ```markdown
 ### Iteration N (YYYY-MM-DD)
@@ -232,13 +232,6 @@ Fix the findings reported by the scripts. Do NOT invent additional findings — 
 #### Dimensions Remaining
 
 - [list of unaudited dimensions with their axes]
-```
-
-Push the tracking update:
-```bash
-git add docs/plans/ci-audit-tracking.md
-git commit -m "docs: update ci-audit tracking with iteration N measurements"
-git push
 ```
 
 ## Phase 6: Merge

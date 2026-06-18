@@ -123,7 +123,7 @@ check_actions_pinned() {
       if echo "$action_ref" | grep -qE '@[0-9a-f]{40}'; then
         pass=$((pass + 1))
         details=$(echo "$details" | jq --arg f "$f" --arg a "$action_ref" '. + [{file: $f, status: "pass", note: ("pinned to SHA: " + $a)}]')
-      elif echo "$action_ref" | grep -qE '@v[0-9]+(\.[0-9]+)*$'; then
+      elif echo "$action_ref" | grep -qE '@v[0-9]+(\.[0-9]+)*([-+][a-zA-Z0-9.]+)*$'; then
         pass=$((pass + 1))
         details=$(echo "$details" | jq --arg f "$f" --arg a "$action_ref" '. + [{file: $f, status: "pass", note: ("pinned to version: " + $a)}]')
       elif echo "$action_ref" | grep -qE '^\./'; then
